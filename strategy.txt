@@ -1,0 +1,100 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © free2rhyme48965
+
+//@version=5
+strategy("2ma strategy_eth",overlay=true)
+varip int count=0
+varip string state=""
+varip float stop=0.0
+varip float stop_count=0.0
+varip float less=0.0
+varip string position=""
+varip float out_short=0.0
+varip float out_long=0.0
+varip bool check_less=false
+varip bool reduce=false
+varip float stop_profit=0.0
+tp_percent = input.float(2.0, "止盈百分比", minval=0.1, step=0.1) / 100
+sl_percent = input.float(1.0, "止損百分比", minval=0.1, step=0.1) / 100
+atr_mul=input(1.5,"atr倍數")
+atr_len=input(14,"atr長度")
+
+if close+ta.atr(atr_len)*atr_mul<out_short and position=="short"
+    out_short:=close+ta.atr(atr_len)*atr_mul
+if close-ta.atr(atr_len)*atr_mul>out_long and position=="long"
+    out_short:=close-ta.atr(atr_len)*atr_mul
+
+
+ma5=ta.sma(close,5)
+ma20=ta.sma(close,20)
+ma60=ta.sma(close,60)
+ma240=ta.sma(close,240)
+
+//plot(ta.sma(close,5),color=color.purple,linewidth=2)
+plot(ta.sma(close,20),color=color.blue,linewidth=2)
+plot(ta.sma(close,60),color=color.green,linewidth=2)
+//plot(ta.sma(close,240),color=color.orange,linewidth=2)
+
+style = input.string("Aggresive", "Style", ["Aggresive", "Conservative"])
+slopPeriod=1
+ma5_slope=(ma5-ma5[slopPeriod])/slopPeriod
+
+ma20_slope=(ma20-ma20[slopPeriod])/slopPeriod
+
+ma60_slope=(ma60-ma60[slopPeriod])/slopPeriod
+
+ma240_slope=(ma240-ma240[slopPeriod])/slopPeriod
+
+diff=ma20-ma60
+angle = math.atan(diff) * 180 / math.pi
+[macdLine, signalLine, histLine] = ta.macd(close, 12, 26, 9)
+longCondition = ta.sma(close,20)>ta.sma(close,60) and ma60_slope>0 and close>ta.sma(close,60) and close>ta.sma(close,20) and macdLine>0 and signalLine>0
+shortCondition = ta.sma(close,20)<ta.sma(close,60) and ma60_slope<0  and close<ta.sma(close,60) and close<ta.sma(close,20) and macdLine<0 and signalLine<0
+
+
+if longCondition
+    state :="多"
+else if shortCondition
+    state :="空"
+
+
+
+if longCondition== true and position==""
+    out_long:= close-ta.atr(atr_len)*atr_mul
+    stop_profit:=close+ta.atr(atr_len)*atr_mul
+    strategy.entry("buy", strategy.long)
+    position:="long"
+    // 設置止盈止損
+    strategy.exit("long_tp_sl", "buy", profit = strategy.position_avg_price * (1 + tp_percent), loss = strategy.position_avg_price * (1 - sl_percent))
+
+if style=="Conservative" and close>=stop_profit and position=="long" and reduce==false
+    strategy.close("buy",qty_percent = 25,comment = "減倉25%")
+    reduce:=true
+if ((close<ta.sma(close,60) or ma60_slope<0)or (close<out_long)) and position=="long"
+    strategy.close_all(comment="close long")
+    position:=""
+    reduce:=false
+
+
+if shortCondition==true and position==""
+    out_short:= close+ta.atr(atr_len)*atr_mul
+    stop_profit:=close-ta.atr(atr_len)*atr_mul
+    strategy.entry("sell", strategy.short)
+    position:="short"
+    strategy.exit("short_tp_sl", "sell", profit = strategy.position_avg_price * (1 - tp_percent), loss = strategy.position_avg_price * (1 + sl_percent))
+if style=="Conservative" and close<=stop_profit and position=="short" and reduce==false
+    strategy.close("sell",qty_percent = 50,comment = "減倉25%")
+    reduce:=true
+if  ((close>ta.sma(close,60) or ma60_slope>0)or(close>out_short)) and position=="short"
+    strategy.close_all(comment="close short")
+    position:=""
+    reduce:=false
+
+//upTrend = plot(ta.sma(ma60_slope,20)>ta.sma(ma60_slope,50) and ma60_slope>0  ? ma60 : na, "Up Trend", color = color.green, style=plot.style_linebr)
+//downTrend = plot(ta.sma(ma60_slope,20)<ta.sma(ma60_slope,50) and ma60_slope<0? ma60: na , "Down Trend", color = color.red, style=plot.style_linebr)    
+    
+    
+    
+
+
+
